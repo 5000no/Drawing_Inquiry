@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员面板 - {{ app_name }}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+        
+        .admin-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin: 2rem auto;
+            max-width: 1200px;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            padding: 2rem;
+            border-radius: 20px 20px 0 0;
+            text-align: center;
+        }
+        
+        .admin-content {
+            padding: 2rem;
+        }
+        
+        .data-table {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .table th {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-weight: bold;
+        }
+        
+        .table td {
+            padding: 12px 15px;
+            vertical-align: middle;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .btn-group-admin {
+            margin-bottom: 2rem;
+        }
+        
+        .btn-admin {
+            margin-right: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-admin:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .form-control {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 12px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-control:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        }
+        
+        .alert {
+            border-radius: 10px;
+            border: none;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载遮罩 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+    
+    <div class="container">
+        <div class="admin-container">
+            <!-- 头部 -->
+            <div class="admin-header">
+                <button class="btn btn-outline-light logout-btn" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> 退出
+                </button>
+                <h1><i class="fas fa-shield-alt"></i> 管理员面板</h1>
+                <p class="mb-0">图纸数据库管理系统</p>
+            </div>
+            
+            <!-- 内容区域 -->
+            <div class="admin-content">
+                <!-- 操作按钮 -->
+                <div class="btn-group-admin">
+                    <button class="btn btn-success btn-admin" onclick="showAddModal()">
+                        <i class="fas fa-plus"></i> 添加图纸
+                    </button>
+                    <button class="btn btn-warning btn-admin" onclick="editSelected()" id="editBtn" disabled>
+                        <i class="fas fa-edit"></i> 编辑选中
+                    </button>
+                    <button class="btn btn-danger btn-admin" onclick="deleteSelected()" id="deleteBtn" disabled>
+                        <i class="fas fa-trash"></i> 删除选中
+                    </button>
+                    <button class="btn btn-info btn-admin" onclick="refreshData()">
+                        <i class="fas fa-sync"></i> 刷新数据
+                    </button>
+                    <button class="btn btn-secondary btn-admin" onclick="goBack()">
+                        <i class="fas fa-arrow-left"></i> 返回主页
+                    </button>
+                </div>
+                
+                <!-- 数据表格 -->
+                <div class="data-table">
+                    <table class="table table-striped mb-0" id="dataTable">
+                        <thead>
+                            <tr>
+                                <th width="50">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                </th>
+                                <th width="80">ID</th>
+                                <th width="200">产品号</th>
+                                <th>PDF路径</th>
+                                <th width="100">状态</th>
+                                <th width="150">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody">
+                            <!-- 数据将通过JavaScript加载 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <nav class="mt-3">
+                    <ul class="pagination justify-content-center" id="pagination">
+                        <!-- 分页将通过JavaScript生成 -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加图纸模态框 -->
+    <div class="modal fade" id="addModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-plus"></i> 添加新图纸
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="addProductCode" class="form-label">产品号</label>
+                            <input type="text" class="form-control" id="addProductCode" 
+                                   placeholder="例如：NR1001" required autocomplete="off">
+                        </div>
+                        <div class="mb-3">
+                            <label for="addPdfFile" class="form-label">选择PDF文件</label>
+                            <input type="file" class="form-control" id="addPdfFile" 
+                                   accept=".pdf" required>
+                            <div class="form-text">请选择要上传的PDF文件</div>
+                        </div>
+                        <div class="mb-3" id="uploadProgress" style="display: none;">
+                            <label class="form-label">上传进度</label>
+                            <div class="progress">
+                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success" onclick="addDrawing()">
+                        <i class="fas fa-upload"></i> 上传并保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 编辑图纸模态框 -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit"></i> 编辑图纸
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editForm">
+                        <input type="hidden" id="editId">
+                        <div class="mb-3">
+                            <label for="editProductCode" class="form-label">产品号</label>
+                            <input type="text" class="form-control" id="editProductCode" required autocomplete="off">
+                            <div class="form-text">修改产品号将同时更新数据库记录</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPdfPath" class="form-label">当前PDF文件路径</label>
+                            <input type="text" class="form-control" id="editPdfPath" required autocomplete="off">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPdfFile" class="form-label">更换PDF文件（可选）</label>
+                            <input type="file" class="form-control" id="editPdfFile" accept=".pdf">
+                            <div class="form-text">如需更换PDF文件，请选择新文件；否则保持原文件不变</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning" onclick="updateDrawing()">
+                        <i class="fas fa-save"></i> 更新
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        let allData = [];
+        const itemsPerPage = 20;
+        
+        // 页面加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+        });
+        
+        // 显示加载状态
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+        
+        // 显示提示信息
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const content = document.querySelector('.admin-content');
+            content.insertBefore(alertDiv, content.firstChild);
+            
+            // 5秒后自动消失
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        // 加载数据
+        function loadData() {
+            showLoading(true);
+            
+            fetch('/api/admin/drawings')
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                
+                if (data.success) {
+                    allData = data.data;
+                    displayData();
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                showAlert('加载数据失败', 'danger');
+                console.error('Error:', error);
+            });
+        }
+        
+        // 显示数据
+        function displayData() {
+            const tbody = document.getElementById('dataTableBody');
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const pageData = allData.slice(startIndex, endIndex);
+            
+            tbody.innerHTML = '';
+            
+            pageData.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="row-checkbox" value="${item.id}" onchange="updateButtons()">
+                    </td>
+                    <td>${item.id}</td>
+                    <td><strong>${item.product_code}</strong></td>
+                    <td>${item.pdf_path}</td>
+                    <td>
+                        <span class="badge bg-success">正常</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" onclick="editItem(${item.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // 更新分页
+            updatePagination();
+            updateButtons();
+        }
+        
+        // 更新分页
+        function updatePagination() {
+            totalPages = Math.ceil(allData.length / itemsPerPage);
+            const pagination = document.getElementById('pagination');
+            
+            pagination.innerHTML = '';
+            
+            // 上一页
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage - 1})">上一页</a>`;
+            pagination.appendChild(prevLi);
+            
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i})">${i}</a>`;
+                pagination.appendChild(li);
+            }
+            
+            // 下一页
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage + 1})">下一页</a>`;
+            pagination.appendChild(nextLi);
+        }
+        
+        // 切换页面
+        function changePage(page) {
+            if (page >= 1 && page <= totalPages) {
+                currentPage = page;
+                displayData();
+            }
+        }
+        
+        // 全选/取消全选
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+            
+            updateButtons();
+        }
+        
+        // 更新按钮状态
+        function updateButtons() {
+            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+            const editBtn = document.getElementById('editBtn');
+            const deleteBtn = document.getElementById('deleteBtn');
+            
+            editBtn.disabled = checkedBoxes.length !== 1;
+            deleteBtn.disabled = checkedBoxes.length === 0;
+        }
+        
+        // 显示添加模态框
+        function showAddModal() {
+            document.getElementById('addForm').reset();
+            new bootstrap.Modal(document.getElementById('addModal')).show();
+        }
+        
+        // 添加图纸
+        function addDrawing() {
+            const productCode = document.getElementById('addProductCode').value.trim();
+            const pdfFile = document.getElementById('addPdfFile').files[0];
+            
+            if (!productCode || !pdfFile) {
+                showAlert('请填写产品号并选择PDF文件', 'warning');
+                return;
+            }
+            
+            // 验证文件类型
+            if (!pdfFile.type.includes('pdf')) {
+                showAlert('请选择PDF文件', 'warning');
+                return;
+            }
+            
+            showLoading(true);
+            
+            // 创建FormData对象用于文件上传
+            const formData = new FormData();
+            formData.append('product_code', productCode);
+            formData.append('pdf_file', pdfFile);
+            
+            // 显示上传进度
+            const progressDiv = document.getElementById('uploadProgress');
+            const progressBar = progressDiv.querySelector('.progress-bar');
+            progressDiv.style.display = 'block';
+            
+            fetch('/api/admin/drawings/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                progressDiv.style.display = 'none';
+                
+                if (data.success) {
+                    showAlert('添加成功', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
+                    loadData();
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                progressDiv.style.display = 'none';
+                showAlert('上传失败', 'danger');
+                console.error('Error:', error);
+            });
+        }
+        
+        // 编辑选中项
+        function editSelected() {
+            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+            if (checkedBoxes.length === 1) {
+                editItem(checkedBoxes[0].value);
+            }
+        }
+        
+        // 编辑单个项目
+        function editItem(id) {
+            const item = allData.find(d => d.id == id);
+            if (item) {
+                document.getElementById('editId').value = item.id;
+                document.getElementById('editProductCode').value = item.product_code;
+                document.getElementById('editPdfPath').value = item.pdf_path;
+                
+                new bootstrap.Modal(document.getElementById('editModal')).show();
+            }
+        }
+        
+        // 更新图纸
+        function updateDrawing() {
+            const id = document.getElementById('editId').value;
+            const productCode = document.getElementById('editProductCode').value.trim();
+            const pdfPath = document.getElementById('editPdfPath').value.trim();
+            const pdfFile = document.getElementById('editPdfFile').files[0];
+            
+            if (!productCode) {
+                showAlert('产品号不能为空', 'warning');
+                return;
+            }
+            
+            if (!pdfPath && !pdfFile) {
+                showAlert('请填写PDF路径或选择新的PDF文件', 'warning');
+                return;
+            }
+            
+            showLoading(true);
+            
+            // 如果有新文件，使用文件上传
+            if (pdfFile) {
+                // 验证文件类型
+                if (!pdfFile.type.includes('pdf')) {
+                    showAlert('请选择PDF文件', 'warning');
+                    showLoading(false);
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('product_code', productCode);
+                formData.append('pdf_file', pdfFile);
+                
+                fetch(`/api/admin/drawings/${id}/upload`, {
+                    method: 'PUT',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showLoading(false);
+                    
+                    if (data.success) {
+                        showAlert('更新成功', 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                        loadData();
+                    } else {
+                        showAlert(data.message, 'danger');
+                    }
+                })
+                .catch(error => {
+                    showLoading(false);
+                    showAlert('更新失败', 'danger');
+                    console.error('Error:', error);
+                });
+            } else {
+                // 更新产品号和路径
+                fetch(`/api/admin/drawings/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        product_code: productCode,
+                        pdf_path: pdfPath
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showLoading(false);
+                    
+                    if (data.success) {
+                        showAlert('更新成功', 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                        loadData();
+                    } else {
+                        showAlert(data.message, 'danger');
+                    }
+                })
+                .catch(error => {
+                    showLoading(false);
+                    showAlert('更新失败', 'danger');
+                    console.error('Error:', error);
+                });
+            }
+        }
+        
+        // 删除选中项
+        function deleteSelected() {
+            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+            if (checkedBoxes.length > 0) {
+                const ids = Array.from(checkedBoxes).map(cb => cb.value);
+                const confirmMsg = `确定要删除选中的 ${ids.length} 个图纸吗？`;
+                
+                if (confirm(confirmMsg)) {
+                    deleteItems(ids);
+                }
+            }
+        }
+        
+        // 删除单个项目
+        function deleteItem(id) {
+            if (confirm('确定要删除这个图纸吗？')) {
+                deleteItems([id]);
+            }
+        }
+        
+        // 删除项目
+        function deleteItems(ids) {
+            showLoading(true);
+            
+            fetch('/api/admin/drawings/batch', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ids: ids
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                
+                if (data.success) {
+                    showAlert(`成功删除 ${data.deleted_count} 个图纸`, 'success');
+                    loadData();
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                showAlert('删除失败', 'danger');
+                console.error('Error:', error);
+            });
+        }
+        
+        // 刷新数据
+        function refreshData() {
+            loadData();
+        }
+        
+        // 返回主页
+        function goBack() {
+            window.location.href = '/';
+        }
+        
+        // 退出登录
+        function logout() {
+            if (confirm('确定要退出管理员面板吗？')) {
+                window.location.href = '/logout';
+            }
+        }
+    </script>
+</body>
+</html>

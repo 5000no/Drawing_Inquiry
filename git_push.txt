@@ -1,0 +1,11 @@
+git init
+
+git remote add origin https://github.com/5000no/Drawing_Inquiry.git
+
+git add .
+
+git commit -m "修改内容介绍"
+
+git branch -M main
+
+git push -u origin main

@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="title">图纸系统 · 登录/注册</view>
+
+  <view class="form">
+    <input class="input" placeholder="用户名" value="{{username}}" bindinput="onInputUsername" />
+    <input class="input" placeholder="密码" value="{{password}}" password="true" bindinput="onInputPassword" />
+  </view>
+
+  <view class="btns">
+    <button class="btn primary" bindtap="onLogin">登录</button>
+  </view>
+
+  <view class="divider">或 注册账号</view>
+
+  <view class="form">
+    <input class="input" placeholder="邮箱（可选）" value="{{email}}" bindinput="onInputEmail" />
+    <input class="input" placeholder="激活码（必填）如 VB-XXXXXXXXXXXX-XXXX" value="{{activationCode}}" bindinput="onInputActivation" />
+  </view>
+
+  <view class="btns">
+    <button class="btn" bindtap="onRegister">注册并登录</button>
+  </view>
+
+  <view class="tips">提示：注册时需提供激活码，以便将数据归属到对应租户库</view>
+</view>

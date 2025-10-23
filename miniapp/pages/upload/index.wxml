@@ -1,0 +1,20 @@
+<view class="container">
+  <view class="title">上传PDF图纸</view>
+
+  <view class="form">
+    <input class="input" placeholder="产品号（唯一）" value="{{productCode}}" bindinput="onInputCode" />
+  </view>
+
+  <view class="btns">
+    <button class="btn primary" bindtap="onChooseFile">选择PDF</button>
+    <button class="btn" bindtap="onUpload" disabled="{{!tempFilePath}}">上传</button>
+  </view>
+
+  <view wx:if="{{pdfUrl}}" class="result">
+    <text>已上传：{{uploadedId}} · {{uploadedFile}}</text>
+    <button class="btn" bindtap="onPreview">预览PDF</button>
+    <button class="btn" bindtap="onCopyLink">复制链接</button>
+  </view>
+
+  <view class="tips">提示：预览/下载需要HTTPS与合法域名；开发阶段可在开发者工具关闭域名校验或使用局域网地址</view>
+</view>

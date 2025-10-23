@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="max-age=3600">
+    <meta http-equiv="Expires" content="3600">
+    <title>{{ app_name }} v{{ version }}</title>
+    
+    <!-- 预加载关键资源 -->
+    <link rel="preload" href="/api/statistics" as="fetch" crossorigin>
+    
+    <!-- 内联关键CSS，避免外部请求 -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        
+        /* 加载动画 - 立即显示 */
+        .loading-splash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: white;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+        
+        .container.loaded {
+            opacity: 1;
+        }
+        
+        .main-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+        
+        .content {
+            padding: 15px;
+        }
+        
+        .mobile-layout {
+            display: flex;
+            gap: 10px;
+            height: calc(100vh - 120px);
+        }
+        
+        .left-panel {
+            flex: 1;
+            min-width: 0;
+            overflow-y: auto;
+        }
+        
+        .right-panel {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .pdf-display-mobile {
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            height: 100%;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .pdf-header-mobile {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .pdf-header-mobile h4 {
+            margin: 0;
+            font-size: 1rem;
+        }
+        
+        .pdf-controls-mobile {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .btn-small:hover {
+            background: #f8f9fa;
+        }
+        
+        .pdf-container-mobile {
+            height: calc(100% - 50px);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .pdf-viewer-mobile {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .result-card {
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+        
+        .result-card h4 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+        }
+        
+        /* 移动端响应式调整 */
+        @media (max-width: 768px) {
+            .mobile-layout {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .left-panel, .right-panel {
+                flex: none;
+            }
+            
+            .pdf-display-mobile {
+                height: 300px;
+                margin-top: 10px;
+            }
+        }
+        
+        /* 超小屏幕 */
+        @media (max-width: 480px) {
+            .content {
+                padding: 8px;
+            }
+            
+            .mobile-layout {
+                gap: 8px;
+            }
+            
+            .pdf-display-mobile {
+                height: 250px;
+            }
+        }
+        
+        .search-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px; /* 防止iOS缩放 */
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn:active {
+            transform: translateY(1px);
+        }
+        
+        .result-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .result-item {
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-left: 4px solid #3498db;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .result-item:active {
+            background: #e9ecef;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        .alert {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .pdf-container {
+            margin-top: 15px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .pdf-viewer {
+            width: 100%;
+            height: 400px;
+            border: none;
+        }
+        
+        .stats {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            
+            .header {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 1.3rem;
+            }
+            
+            .content {
+                padding: 15px;
+            }
+            
+            input[type="text"] {
+                font-size: 16px; /* 防止iOS自动缩放 */
+            }
+        }
+        
+        /* 隐藏类 */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- 启动加载画面 -->
+    <div id="loadingSplash" class="loading-splash">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在加载图纸查询系统...</div>
+    </div>
+    
+    <div class="container" id="mainContainer">
+        <div class="main-card">
+            <!-- 头部 -->
+            <div class="header">
+                <h1>📋 {{ app_name }}</h1>
+                <p>版本 {{ version }} | 移动端优化版</p>
+            </div>
+            
+            <!-- 内容区域 - 移动端左右分栏 -->
+            <div class="content">
+                <div class="mobile-layout">
+                    <!-- 左侧：查询功能和信息 -->
+                    <div class="left-panel">
+                        <!-- 精确搜索 -->
+                        <div class="search-box">
+                            <h3>🔍 精确查询</h3>
+                            <div class="form-group">
+                                <label for="productCode">产品号:</label>
+                                <input type="text" 
+                                       id="productCode" 
+                                       placeholder="请输入产品号（如：NR1001）"
+                                       autocomplete="off">
+                            </div>
+                            <button class="btn btn-primary" onclick="searchDrawing()">
+                                查询图纸
+                            </button>
+                        </div>
+                        
+                        <!-- 模糊搜索 -->
+                        <div class="search-box">
+                            <h3>🔎 模糊搜索</h3>
+                            <div class="form-group">
+                                <label for="fuzzyKeyword">关键词:</label>
+                                <input type="text" 
+                                       id="fuzzyKeyword" 
+                                       placeholder="请输入关键词"
+                                       autocomplete="off">
+                            </div>
+                            <button class="btn btn-secondary" onclick="fuzzySearch()">
+                                模糊搜索
+                            </button>
+                        </div>
+                        
+                        <!-- 搜索结果 -->
+                        <div id="singleResult" class="result-card">
+                            <h4>📄 查询结果</h4>
+                            <div id="drawingInfo"></div>
+                        </div>
+                        
+                        <!-- 模糊搜索结果 -->
+                        <div id="fuzzyResults" class="result-card">
+                            <h4>📋 搜索结果</h4>
+                            <div id="fuzzyList"></div>
+                        </div>
+                        
+                        <!-- 统计信息 -->
+                        <div class="stats">
+                            <div class="stat-number" id="totalCount">-</div>
+                            <div>总图纸数量</div>
+                            
+                            <!-- 管理员面板入口 -->
+                            <button class="btn btn-secondary" onclick="goAdminPanel()" style="margin-top: 15px; width: auto; padding: 8px 15px;">
+                                ⚙️ 管理员面板
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧：PDF显示区域 -->
+                    <div class="right-panel">
+                        <div class="pdf-display-mobile">
+                            <div class="pdf-header-mobile">
+                                <h4>📄 PDF预览</h4>
+                                <div class="pdf-controls-mobile" id="pdfControlsMobile" style="display: none;">
+                                    <button class="btn-small" onclick="openPdfInNewTab()">
+                                        🔗 新窗口
+                                    </button>
+                                    <button class="btn-small" onclick="clearPdf()">
+                                        ❌ 清除
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="pdf-container-mobile" id="pdfContainerMobile">
+                                <div class="pdf-placeholder">
+                                    <div style="font-size: 3rem;">📄</div>
+                                    <p style="margin-top: 10px; color: #666;">请先查询图纸</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let isLoading = false;
+        let statisticsCache = null;
+        
+        // 立即执行的初始化函数
+        (function() {
+            // 预加载统计数据
+            preloadStatistics();
+            
+            // 设置快速启动
+            document.addEventListener('DOMContentLoaded', function() {
+                // 延迟隐藏启动画面，让用户看到加载过程
+                setTimeout(function() {
+                    const splash = document.getElementById('loadingSplash');
+                    const container = document.getElementById('mainContainer');
+                    
+                    splash.style.opacity = '0';
+                    container.classList.add('loaded');
+                    
+                    setTimeout(function() {
+                        splash.style.display = 'none';
+                    }, 300);
+                }, 800); // 800ms后隐藏启动画面
+                
+                // 绑定事件
+                bindEvents();
+                
+                // 加载统计信息
+                loadStatistics();
+            });
+        })();
+        
+        // 预加载统计数据
+        function preloadStatistics() {
+            fetch('/api/statistics')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statisticsCache = data.data;
+                }
+            })
+            .catch(error => {
+                console.log('预加载统计数据失败:', error);
+            });
+        }
+        
+        // 绑定事件
+        function bindEvents() {
+            // 绑定回车事件
+            document.getElementById('productCode').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !isLoading) {
+                    searchDrawing();
+                }
+            });
+            
+            document.getElementById('fuzzyKeyword').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !isLoading) {
+                    fuzzySearch();
+                }
+            });
+            
+            // 移除自动填充功能，避免自动填入上次搜索内容
+            // const lastSearch = localStorage.getItem('lastProductCode');
+            // if (lastSearch) {
+            //     document.getElementById('productCode').value = lastSearch;
+            // }
+        }
+        
+        // 显示加载状态
+        function showLoading(show) {
+            isLoading = show;
+            // 移动端没有loading元素，使用按钮状态显示加载
+            
+            // 禁用按钮防止重复请求
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(btn => {
+                btn.disabled = show;
+                btn.style.opacity = show ? '0.6' : '1';
+                if (show) {
+                    btn.textContent = btn.textContent.includes('查询') ? '查询中...' : '搜索中...';
+                } else {
+                    if (btn.textContent.includes('查询中')) {
+                        btn.textContent = '查询图纸';
+                    } else if (btn.textContent.includes('搜索中')) {
+                        btn.textContent = '模糊搜索';
+                    }
+                }
+            });
+        }
+        
+        // 隐藏所有结果
+        function hideResults() {
+            document.getElementById('singleResult').style.display = 'none';
+            document.getElementById('fuzzyResults').style.display = 'none';
+            clearPdf();
+        }
+        
+        // 显示提示信息
+        function showAlert(message, type = 'warning') {
+            // 移除现有提示
+            const existingAlert = document.querySelector('.alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            
+            // 插入到内容区域顶部
+            const content = document.querySelector('.content');
+            content.insertBefore(alertDiv, content.firstChild);
+            
+            // 3秒后自动消失
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 3000);
+        }
+        
+        // 精确搜索 - 优化版
+        function searchDrawing() {
+            const productCode = document.getElementById('productCode').value.trim();
+            
+            if (!productCode) {
+                showAlert('请输入产品号');
+                return;
+            }
+            
+            // 缓存搜索记录
+            localStorage.setItem('lastProductCode', productCode);
+            
+            showLoading(true);
+            hideResults();
+            
+            // 使用fetch with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+            
+            fetch('/api/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    product_code: productCode
+                }),
+                signal: controller.signal
+            })
+            .then(response => {
+                clearTimeout(timeoutId);
+                return response.json();
+            })
+            .then(data => {
+                showLoading(false);
+                
+                if (data.success) {
+                    displaySingleResult(data.data);
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                clearTimeout(timeoutId);
+                showLoading(false);
+                if (error.name === 'AbortError') {
+                    showAlert('请求超时，请检查网络连接', 'danger');
+                } else {
+                    showAlert('网络错误，请检查连接', 'danger');
+                }
+                console.error('Error:', error);
+            });
+        }
+        
+        // 模糊搜索 - 优化版
+        function fuzzySearch() {
+            const keyword = document.getElementById('fuzzyKeyword').value.trim();
+            
+            if (!keyword) {
+                showAlert('请输入搜索关键词');
+                return;
+            }
+            
+            showLoading(true);
+            hideResults();
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            
+            fetch('/api/search/fuzzy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    keyword: keyword,
+                    limit: 20
+                }),
+                signal: controller.signal
+            })
+            .then(response => {
+                clearTimeout(timeoutId);
+                return response.json();
+            })
+            .then(data => {
+                showLoading(false);
+                
+                if (data.success) {
+                    displayFuzzyResults(data.data);
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                clearTimeout(timeoutId);
+                showLoading(false);
+                if (error.name === 'AbortError') {
+                    showAlert('请求超时，请检查网络连接', 'danger');
+                } else {
+                    showAlert('网络错误，请检查连接', 'danger');
+                }
+                console.error('Error:', error);
+            });
+        }
+        
+        // 显示单个结果
+        function displaySingleResult(drawing) {
+            const html = `
+                <div>
+                    <strong>产品号:</strong> ${drawing.product_code}<br>
+                    <strong>PDF文件:</strong> ${drawing.pdf_path}<br>
+                    ${drawing.pdf_exists ? 
+                        `<button class="btn btn-primary" onclick="viewPDF('${drawing.pdf_url}')" style="margin-top: 8px; padding: 6px 12px; font-size: 0.9rem;">
+                            📄 查看PDF
+                        </button>` :
+                        `<span style="color: #dc3545;">❌ 文件不存在</span>`
+                    }
+                </div>
+            `;
+            
+            document.getElementById('drawingInfo').innerHTML = html;
+            document.getElementById('singleResult').style.display = 'block';
+            
+            // 如果PDF存在，自动在右侧显示
+            if (drawing.pdf_exists) {
+                viewPDF(drawing.pdf_url);
+            }
+        }
+        
+        // 查看PDF - 在右侧显示
+        function viewPDF(pdfUrl) {
+            const pdfContainer = document.getElementById('pdfContainerMobile');
+            const pdfControls = document.getElementById('pdfControlsMobile');
+            
+            // 显示PDF控制按钮
+            pdfControls.style.display = 'flex';
+            
+            // 在右侧显示PDF
+            pdfContainer.innerHTML = `<iframe src="${pdfUrl}" class="pdf-viewer-mobile"></iframe>`;
+            
+            // 保存当前PDF URL供新窗口打开使用
+            window.currentPdfUrl = pdfUrl;
+        }
+        
+        // 清除PDF显示
+        function clearPdf() {
+            const pdfContainer = document.getElementById('pdfContainerMobile');
+            const pdfControls = document.getElementById('pdfControlsMobile');
+            
+            pdfContainer.innerHTML = `
+                <div class="pdf-placeholder">
+                    <div style="font-size: 3rem;">📄</div>
+                    <p style="margin-top: 10px; color: #666;">请先查询图纸</p>
+                </div>
+            `;
+            pdfControls.style.display = 'none';
+            window.currentPdfUrl = null;
+        }
+        
+        // 隐藏所有结果
+        function hideResults() {
+            document.getElementById('singleResult').style.display = 'none';
+            document.getElementById('fuzzyResults').style.display = 'none';
+            clearPdf();
+        }
+         
+         // 显示模糊搜索结果
+         function displayFuzzyResults(results) {
+             if (results.length === 0) {
+                 showAlert('未找到匹配的结果', 'warning');
+                 return;
+             }
+             
+             let html = `<p style="color: #6c757d; margin-bottom: 10px; font-size: 0.9rem;">找到 ${results.length} 个结果：</p>`;
+             
+             results.forEach(item => {
+                 html += `
+                     <div class="result-item" onclick="selectDrawing('${item.product_code}')" style="padding: 8px; margin-bottom: 5px; background: #f8f9fa; border-radius: 5px; cursor: pointer; border-left: 3px solid #3498db;">
+                         <strong style="font-size: 0.9rem;">${item.product_code}</strong><br>
+                         <small style="color: #6c757d; font-size: 0.8rem;">${item.pdf_path}</small>
+                         <span style="float: right; font-size: 0.8rem;">
+                             ${item.pdf_exists ? '✅' : '❌'}
+                         </span>
+                     </div>
+                 `;
+             });
+             
+             document.getElementById('fuzzyList').innerHTML = html;
+             document.getElementById('fuzzyResults').style.display = 'block';
+         }
+         
+         // 选择图纸
+         function selectDrawing(productCode) {
+             document.getElementById('productCode').value = productCode;
+             document.getElementById('fuzzyResults').style.display = 'none';
+             searchDrawing();
+         }
+         
+         // 在新窗口打开PDF
+         function openPdfInNewTab() {
+             if (window.currentPdfUrl) {
+                 window.open(window.currentPdfUrl, '_blank');
+             }
+         }
+          
+          // 加载统计信息 - 优化版
+          function loadStatistics() {
+            // 不使用缓存，确保数据实时更新
+            fetch('/api/statistics?' + new Date().getTime())
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('totalCount').textContent = data.data.total_drawings;
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load statistics:', error);
+                document.getElementById('totalCount').textContent = '?';
+            });
+        }
+        
+        // 直接进入管理员面板（无需单独密码）
+        function goAdminPanel() {
+            window.location.href = '/admin';
+        }
+    </script>
+</body>
+</html>

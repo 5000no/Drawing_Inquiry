@@ -1,0 +1,1 @@
+pyinstaller -F -w --add-data "ui;ui" --add-data "database;database" --add-data "utils;utils" --add-data "data;data" main.py
