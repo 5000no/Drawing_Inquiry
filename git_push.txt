@@ -4,8 +4,11 @@ git remote add origin https://github.com/5000no/Drawing_Inquiry.git
 
 git add .
 
-git commit -m "修改内容介绍"
+git commit -m "20251023"
 
 git branch -M main
+
+git pull --rebase origin main
+
 
 git push -u origin main
